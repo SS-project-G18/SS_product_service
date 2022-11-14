@@ -6,16 +6,16 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GKE_PROJECT }}
-  GAR_LOCATION: us-central1 
-  GKE_CLUSTER: ss-18    
-  GKE_ZONE: us-central1-c  
-  DEPLOYMENT_NAME: product
-  REPOSITORY: product 
+  GAR_LOCATION: asia-south1
+  GKE_CLUSTER: ss-cluster   
+  GKE_ZONE: asia-south1-a  
+  DEPLOYMENT_NAME: product 
+  REPOSITORY: product
   IMAGE: product
 
 jobs:
   setup-build-publish-deploy:
-    name: Setup, Build, Publish, and Deploy
+    name: Install Dependencies, Lint, Run Pytests, Build docker image, push it to a container register and deploy the image to GKE
     runs-on: ubuntu-latest
     environment: production
 
@@ -26,6 +26,21 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v3
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v3
+      with:
+        python-version: "3.10"
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 pytest
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+    - name: Lint with flake8
+      run: |
+        # stop the build if there are Python syntax errors or undefined names
+        flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
+        flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
     # Configure Workload Identity Federation and generate an access token.
     - id: 'auth'
@@ -35,6 +50,7 @@ jobs:
         token_format: 'access_token'
         workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider'
         service_account: 'my-service-account@my-project.iam.gserviceaccount.com'
+
 
     - name: Docker configuration
       run: |-
